@@ -244,7 +244,8 @@ fill_values = {
 }
 #columns and fill_values information in https://spdf.gsfc.nasa.gov/pub/data/omni/low_res_omni/omni2.text
 
+omni2_low_res_all_years.columns = columns
 omni2_low_res_all_years = omni2_low_res_all_years.replace(fill_values, np.nan)
-# omni2_low_res_all_years.to_pickle("C:/Users/pierr/OneDrive - IPSA/Documents/IPSA/Aero 5/PMI/data/omni_1h_all.pkl")
+omni2_low_res_all_years.to_pickle("C:/Users/pierr/OneDrive - IPSA/Documents/IPSA/Aero 5/PMI/data/omni_1h_all.pkl")
 
 
