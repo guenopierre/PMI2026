@@ -1,149 +1,156 @@
+## FORMAT PROPOSÉ : omni_<source><version>_<resolution>_<debut>_<fin>.<data_type>
+
+# CHAMP         VALEURS	                                 EXEMPLES
+# source	    wrapper-providers, website               speasyamda, omniweb	     
+# resolution	{M}min, {H}h	                         5min
+# plage	        {AAAAMMJJ_AAAAMMJJ} 	                 19950101_20001231
+
+
 #%% librairies
 
 import speasy as spz
 import pandas as pd
 from datetime import datetime
 import numpy as np
+from tqdm import tqdm
+
+#%%SPEASY
+#toutes les infos dans le Excel 'datasets [...]' sur le Teams (paths, names, missing_values, etc.)
+
+def speasy_access(
+    path,
+    products,  
+    start_time=datetime(1972, 1, 1, 0, 0),
+    stop_time=datetime(2025, 12, 31, 23, 59),
+    fill_nan=True,
+):
+  # Résolution des produits
+  if isinstance(products, str):
+    products = [products]
+
+  resolved_products = []
+  for p in products:
+    if isinstance(p, str):
+      resolved_products.append(getattr(path, p))
+    else:
+      resolved_products.append(p)
+
+  # Téléchargement avec tqdm
+  datasets = []
+  for prod in tqdm(
+      resolved_products, desc="Téléchargement des produits Speasy"
+  ):
+    datasets.append(spz.get_data(prod, start_time, stop_time))
+
+  # Concaténation propre (les produits partagent la même grille temporelle)
+  df = pd.concat([x.to_dataframe() for x in datasets], axis=1)
+  
+  if fill_nan:
+    fill_values = {
+        # High freq (5')
+        "Bx, GSE": 9999.99,
+        "By, GSM": 9999.99,
+        "Bz, GSM": 9999.99,
+        "Plasma Beta": 999.99,
+        "Na/Np ratio": 9.999,
+        "Flow pressure": 99.99,
+        "flow speed, GSE": 9999.9,
+        "Proton density": 999.99,
+        "temperature": 9.99999e+06,
+        "5-m AE": 99999,
+        
+        # Low freq (1H)
+        "1AU IP Bx, GSE": 999.9,
+        "1AU IP By, GSM": 999.9,
+        "1AU IP Bz, GSM": 999.9,
+        "1AU IP Plasma Beta": 999.99,
+        "1AU IP N (ion)": 999.9,
+        "1AU IP Flow Pressure": 99.99,
+        "1AU IP Alpha/Proton": 9.999,
+        "1AU IP Plasma Temp": 9.99999e+06,
+        "1AU IP Plasma Speed": 9999.0
+    }
+    for col, val in tqdm(
+        fill_values.items(), desc="Remplacement des valeurs NaN"
+    ):
+      if col in df.columns:
+        df[col] = df[col].replace(val, np.nan)
+        
+    # Calcul B_tot
+    ## high freq: 
+    with tqdm(total=1, desc="Calcul du champ magnétique B") as pbar:
+        if {"Bx, GSE", "By, GSM", "Bz, GSM"}.issubset(df.columns):
+            df["B"] = np.sqrt(
+                df["Bx, GSE"] ** 2 + df["By, GSM"] ** 2 + df["Bz, GSM"] ** 2
+            )
+        elif {"1AU IP Bx, GSE", "1AU IP By, GSM", "1AU IP Bz, GSM"}.issubset(df.columns):
+            df["B"] = np.sqrt(
+                df["1AU IP Bx, GSE"] ** 2 + df["1AU IP By, GSM"] ** 2 + df["1AU IP Bz, GSM"] ** 2
+            )
+        pbar.update(1)
+
+  return datasets, df
 
 
+## PATHS
+path_omni_speasycda1_5min  = spz.inventories.data_tree.cda.OMNI_Combined_1AU_IP_Data__Magnetic_and_Solar_Indices.OMNI_1AU_IP_Data.IMF__Plasma__Indices__Energetic_Proton_Flux.OMNI_HRO_5MIN
+path_omni_speasycda2_5min  = spz.inventories.data_tree.cda.OMNI_Combined_1AU_IP_Data__Magnetic_and_Solar_Indices.OMNI_1AU_IP_Data.IMF__Plasma__Indices__Energetic_Proton_Flux.OMNI_HRO2_5MIN
+path_omni_speasycda2_1h  = spz.inventories.data_tree.cda.OMNI_Combined_1AU_IP_Data__Magnetic_and_Solar_Indices.OMNI_1AU_IP_Data.IMF__Plasma__Indices__Energetic_Proton_Flux.OMNI2_H0_MRG1HR
 
-#%%SPEASY - 1. OMNI 5 minutes dataset (high_freq)
 
-print("be careful, it takes time")
-start_time = datetime(1995, 1, 1, 0, 0)
-stop_time = datetime(2026, 1, 1, 0, 0)
+## PRODUCTS
+#accès de toute la liste des produits avec la commande dir(path_{...})
+products_omni_speasycda1_5min = ["BX_GSE",
+                                "BY_GSM",
+                                "BZ_GSM",
+                                "proton_density",
+                                "Beta", 
+                                "NaNp_Ratio",
+                                "flow_speed",
+                                "AE_INDEX"
+                                ]
 
-data_path = spz.inventories.data_tree.cda.OMNI_Combined_1AU_IP_Data__Magnetic_and_Solar_Indices.OMNI_1AU_IP_Data.IMF__Plasma__Indices__Energetic_Proton_Flux.OMNI_HRO_5MIN
-dir(data_path)
 
-products = [data_path.BX_GSE,
-            data_path.BY_GSM,
-            data_path.BZ_GSM,
-            data_path.Beta,
-            data_path.T,
-            data_path.proton_density,
-            data_path.flow_speed
-           ]
-datasets = spz.get_data(products, start_time, stop_time)
+products_omni_speasycda2_5min = ['AE_INDEX', 
+                                 'BX_GSE',
+                                 'BY_GSM',
+                                 'BZ_GSM',
+                                 'Beta',
+                                 'NaNp_Ratio',
+                                 'Pressure',
+                                 'flow_speed',
+                                 'proton_density', 
+                                 'T'
+                                ]
 
-omni_df = pd.concat([x.to_dataframe() for x in datasets], axis=1)
-# omni_df.rename({'Bx, GSE':'Bx',
-#                 'By, GSM':'By',
-#                 'Bz, GSM':'Bz',
-#                 'Plasma Beta':'Beta',
-#                 'temperature':'T',
-#                 'Proton density':'Np',
-#                 'flow speed, GSE':'V'}, 
-#                axis='columns', inplace=True)
+products_omni_speasycda2_1h = ['AE1800',
+                             'BX_GSE1800',
+                             'BY_GSM1800',
+                             'BZ_GSM1800',
+                             'Beta1800',
+                             'DST1800',
+                             'KP1800',
+                             'N1800',
+                             'Pressure1800',
+                             'Ratio1800',
+                             'T1800',
+                             'V1800'
+                            ]
 
-## NaN conversion -> /!\ not really the same as the OMNI2 .dat dataset
-fill_values_5min = {
-    "Bx, GSE": 9999.99,
-    "By, GSM": 9999.99,
-    "Bz, GSM": 9999.99,
-    "temperature": 9999999.0,
-    "Proton density": 999.99,
-    "flow speed, GSE": 99999.9,
-    "Plasma Beta": 999.99
-}
 
-omni_df = omni_df.replace(fill_values_5min, np.nan)
+[_, omni_speasycda2_1h_19950101_20001231] = speasy_access(path_omni_speasycda2_1h, products_omni_speasycda2_1h, 
+                               start_time=datetime(1995, 1, 1, 0, 0), 
+                               stop_time=datetime(2000, 12, 31, 0, 0))
 
-omni_df['B'] = np.sqrt(omni_df['Bx, GSE']**2+omni_df['By, GSM']**2+omni_df['Bz, GSM']**2)
 
 #to save
-# omni_df.to_pickle('C:/Users/pierr/OneDrive - IPSA/Documents/IPSA/Aero 5/PMI/data/OMNI_HRO_5MIN_19952026.pkl')
+# omni_speasycda2_1h_19950101_20001231.to_pickle('C:/Users/pierr/OneDrive - IPSA/Documents/IPSA/Aero 5/PMI/data/omni_speasycda2_1h_19950101_20001231.pkl')
 
 
 
-#%%SPEASY - 2. OMNI 1 hour dataset (low_freq)
+#%%OMNIWEB
 
-print("be careful, it takes a lot of time")
-start_time = datetime(1995, 1, 1, 0, 0)
-stop_time = datetime(2026, 1, 1, 0, 0)
-
-# data_path = spz.inventories.data_tree.amda.Parameters.OMNI.Sun__Solar_Wind__Ground_Based_Indices.omni_hour_all
-data_path = spz.inventories.data_tree.cda.OMNI_Combined_1AU_IP_Data__Magnetic_and_Solar_Indices.OMNI_1AU_IP_Data.IMF__Plasma__Indices__Energetic_Proton_Flux.OMNI2_H0_MRG1HR
-dir(data_path)
-
-
-# products = [data_path.omni_imf_mag,
-#             data_path.omni_imf,
-#             data_path.omni_sw_beta,
-#             data_path.omni_sw_t,
-#             data_path.omni_sw_v,
-#             data_path.omni_sw_n
-#            ]
-products = [data_path.BX_GSE1800,
-            data_path.BY_GSM1800,
-            data_path.BZ_GSM1800,
-            data_path.Beta1800,
-            data_path.T1800,
-            data_path.N1800,
-            data_path.V1800
-           ]
-
-datasets = spz.get_data(products, start_time, stop_time)
-
-omni_df = pd.concat([x.to_dataframe() for x in datasets], axis=1)
-
-#useless:
-# omni_df.rename({'Bx, GSE':'Bx',
-#                 'By, GSM':'By',
-#                 'Bz, GSM':'Bz',
-#                 'Plasma Beta':'Beta',
-#                 'temperature':'T',
-#                 'Proton density':'Np',
-#                 'flow speed, GSE':'V'}, 
-#                axis='columns', inplace=True)
-
-
-fill_values_1h = {
-    "Bx, GSE": 9999.99,
-    "By, GSM": 9999.99,
-    "Bz, GSM": 9999.99,
-    "temperature": 9999999.0,
-    "Proton density": 999.99,
-    "flow speed, GSE": 99999.9,
-    "Plasma Beta": 999.99
-}  #I will probably have to correct it 
-
-omni_df = omni_df.replace(fill_values_5min, np.nan)
-
-omni_df['B'] = np.sqrt(omni_df.Bx**2+omni_df.By**2+omni_df.Bz**2)
-
-#to save
-# omni_df.to_pickle('C:/Users/pierr/OneDrive - IPSA/Documents/IPSA/Aero 5/PMI/data/OMNI2_H0_MRG1HR_19952026.pkl')
-
-#%%SPEASY - 3. OMNI geomag dataset
-
-start_time = datetime(1995, 1, 1, 0, 0)
-stop_time = datetime(1996, 1, 1, 0, 0)
-
-data_path = spz.inventories.data_tree.cda.OMNI_Combined_1AU_IP_Data__Magnetic_and_Solar_Indices.OMNI_1AU_IP_Data.IMF__Plasma__Indices__Energetic_Proton_Flux.OMNI2_H0_MRG1HR
-
-products = [data_path.AE1800,
-            data_path.DST1800,
-            data_path.KP1800,
-            data_path.PC_N_INDEX1800,
-            data_path.F10_INDEX1800
-           ]  
-datasets = spz.get_data(products, start_time, stop_time)
-
-omni_df = pd.concat([x.to_dataframe() for x in datasets], axis=1)
-
-omni_df.rename({'1-h AE':'AE',
-                '1-h Dst':'Dst',
-                '3-h Kp*10':'Kp',
-                '1-h PC(N)-index':'PC_N',
-                'Daily F10.7':'F_10_7'}, 
-               axis='columns', inplace=True)
-
-# omni_df.to_pickle('C:/Users/pierr/OneDrive - IPSA/Documents/IPSA/Aero 5/PMI/data/omni_geomag1995_2026.pkl')
-
-#%%DAT - 1. OMNI 2 Low Res (1h) - All variables & All years
-
-omni2_low_res_all_years = pd.read_csv("C:/Users/pierr/OneDrive - IPSA/Documents/IPSA/Aero 5/PMI/data/omni2_all_years.dat", 
+omni_omniweb2_5min_19630101_19920129 = pd.read_csv("C:/Users/pierr/OneDrive - IPSA/Documents/IPSA/Aero 5/PMI/data/omni2_all_years.dat", 
                  sep="\s+", 
                  header=None)  
 #omni2_all_years.dat accessible here: https://spdf.gsfc.nasa.gov/pub/data/omni/low_res_omni/omni2_all_years.dat
@@ -161,23 +168,23 @@ columns = [
     "Magnitude_of_Average_Field_Vector",
     "Lat.Angle_of_Aver._Field_Vector",
     "Long.Angle_of_Aver.Field_Vector",
-    "Bx_GSE,_GSM",
+    "1AU IP Bx, GSE",
     "By_GSE",
     "Bz_GSE",
-    "By_GSM",
-    "Bz_GSM",
+    "1AU IP By, GSM",
+    "1AU IP Bz, GSM",
     "sigma|B|",
     "sigma_B",
     "sigma_Bx",
     "sigma_By",
     "sigma_Bz",
-    "Proton_temperature",
-    "Proton_Density",
-    "Plasma_(Flow)_speed",
+    "1AU IP Plasma Temp",
+    "1AU IP N (ion)",
+    "1AU IP Plasma Speed",
     "Plasma_Flow_Long._Angle",
     "Plasma_Flow_Lat._Angle",
-    "Na/Np",
-    "Flow_Pressure",
+    "1AU IP Alpha/Proton",
+    "1AU IP Flow Pressure",
     "sigma_T",
     "sigma_N",
     "sigma_V",
@@ -185,12 +192,12 @@ columns = [
     "sigma_theta_V",
     "sigma-Na/Np",
     "Electric_field",
-    "Plasma_beta",
+    "1AU IP Plasma Beta",
     "Alfven_mach_number",
-    "Kp",
+    "3-h Kp*10",
     "R",
-    "DST_Index",
-    "AE-index",
+    "1-h Dst",
+    "1-h AE",
     "Proton_flux_>1_Mev",
     "Proton_flux_>2_Mev",
     "Proton_flux_>4_Mev",
@@ -259,11 +266,22 @@ fill_values = {
     "AL-index,_from_Kyoto": 99999,
     "AU-index,_from_Kyoto": 99999,
     "Magnetosonic_mach_number": 99.9,
+    "1AU IP Bx, GSE": 999.9,
+    "1AU IP By, GSM": 999.9,
+    "1AU IP Bz, GSM": 999.9,
+    "1AU IP Plasma Beta": 999.99,
+    "1AU IP N (ion)": 999.9,
+    "1AU IP Flow Pressure": 99.99,
+    "1AU IP Alpha/Proton": 9.999,
+    "1AU IP Plasma Temp": 9.99999e+06,
+    "1AU IP Plasma Speed": 9999.0
 }
 #columns and fill_values information in https://spdf.gsfc.nasa.gov/pub/data/omni/low_res_omni/omni2.text
 
-omni2_low_res_all_years.columns = columns
-omni2_low_res_all_years = omni2_low_res_all_years.replace(fill_values, np.nan)
-omni2_low_res_all_years.to_pickle("C:/Users/pierr/OneDrive - IPSA/Documents/IPSA/Aero 5/PMI/data/omni_1h_all.pkl")
+omni_omniweb2_5min_19630101_19920129.columns = columns
+omni_omniweb2_5min_19630101_19920129 = omni_omniweb2_5min_19630101_19920129.replace(fill_values, np.nan)
+
+# to save
+# omni_omniweb2_5min_19630101_19920129.to_pickle("C:/Users/pierr/OneDrive - IPSA/Documents/IPSA/Aero 5/PMI/data/omni_omniweb2_5min_19630101_19920129.pkl")
 
 
