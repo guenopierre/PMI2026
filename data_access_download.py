@@ -20,7 +20,7 @@ from tqdm import tqdm
 def speasy_access(
     path,
     products,  
-    start_time=datetime(1972, 1, 1, 0, 0),
+    start_time=datetime(1963, 1, 1, 0, 0),
     stop_time=datetime(2025, 12, 31, 23, 59),
     fill_nan=True,
 ):
@@ -67,8 +67,9 @@ def speasy_access(
         "1AU IP N (ion)": 999.9,
         "1AU IP Flow Pressure": 99.99,
         "1AU IP Alpha/Proton": 9.999,
-        "1AU IP Plasma Temp": 9.99999e+06,
-        "1AU IP Plasma Speed": 9999.0
+        "1AU IP Plasma Temp": 9.999999e+06,
+        "1AU IP Plasma Speed": 9999.0, 
+        "1-h AE" : 9999
     }
     for col, val in tqdm(
         fill_values.items(), desc="Remplacement des valeurs NaN"
@@ -110,7 +111,6 @@ products_omni_speasycda1_5min = ["BX_GSE",
                                 "AE_INDEX"
                                 ]
 
-
 products_omni_speasycda2_5min = ['AE_INDEX', 
                                  'BX_GSE',
                                  'BY_GSM',
@@ -137,15 +137,13 @@ products_omni_speasycda2_1h = ['AE1800',
                              'V1800'
                             ]
 
-
-[_, omni_speasycda2_1h_19950101_20001231] = speasy_access(path_omni_speasycda2_1h, products_omni_speasycda2_1h, 
-                               start_time=datetime(1995, 1, 1, 0, 0), 
-                               stop_time=datetime(2000, 12, 31, 0, 0))
-
-
-#to save
-# omni_speasycda2_1h_19950101_20001231.to_pickle('C:/Users/pierr/OneDrive - IPSA/Documents/IPSA/Aero 5/PMI/data/omni_speasycda2_1h_19950101_20001231.pkl')
-
+#Fyi, le cda 1h de 1984 à 1995 m'a pris 45' à télécharger
+[_, omni_speasycda2_1h_19960101_20071231] = speasy_access(path_omni_speasycda2_1h, products_omni_speasycda2_1h, 
+                                                          start_time=datetime(1996, 1, 1, 0, 0), 
+                                                          stop_time=datetime(2007, 12, 31, 23, 59))
+    
+#to save (reste à faire de 1972 à 1983)
+# omni_speasycda2_1h_19960101_20071231.to_pickle('C:/Users/pierr/OneDrive - IPSA/Documents/IPSA/Aero 5/PMI/data/omni_speasycda2_1h_19960101_20071231.pkl')
 
 
 #%%OMNIWEB
@@ -282,6 +280,6 @@ omni_omniweb2_5min_19630101_19920129.columns = columns
 omni_omniweb2_5min_19630101_19920129 = omni_omniweb2_5min_19630101_19920129.replace(fill_values, np.nan)
 
 # to save
-# omni_omniweb2_5min_19630101_19920129.to_pickle("C:/Users/pierr/OneDrive - IPSA/Documents/IPSA/Aero 5/PMI/data/omni_omniweb2_5min_19630101_19920129.pkl")
+omni_omniweb2_5min_19630101_19920129.to_pickle("C:/Users/pierr/OneDrive - IPSA/Documents/IPSA/Aero 5/PMI/data/omni_omniweb2_5min_19630101_19920129.pkl")
 
 
