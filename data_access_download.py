@@ -138,12 +138,12 @@ products_omni_speasycda2_1h = ['AE1800',
                             ]
 
 #Fyi, le cda 1h de 1984 à 1995 m'a pris 45' à télécharger
-[_, omni_speasycda2_1h_19960101_20071231] = speasy_access(path_omni_speasycda2_1h, products_omni_speasycda2_1h, 
-                                                          start_time=datetime(1996, 1, 1, 0, 0), 
-                                                          stop_time=datetime(2007, 12, 31, 23, 59))
+[_, omni_speasycda2_1h_20080101_20191231] = speasy_access(path_omni_speasycda2_1h, products_omni_speasycda2_1h, 
+                                                          start_time=datetime(2008, 1, 1, 0, 0), 
+                                                          stop_time=datetime(2019, 12, 31, 23, 59))
     
 #to save (reste à faire de 1972 à 1983)
-# omni_speasycda2_1h_19960101_20071231.to_pickle('C:/Users/pierr/OneDrive - IPSA/Documents/IPSA/Aero 5/PMI/data/omni_speasycda2_1h_19960101_20071231.pkl')
+# omni_speasycda2_1h_20080101_20191231.to_pickle('C:/Users/pierr/OneDrive - IPSA/Documents/IPSA/Aero 5/PMI/data/omni_speasycda2_1h_20080101_20191231.pkl')
 
 
 #%%OMNIWEB

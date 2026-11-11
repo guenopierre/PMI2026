@@ -91,7 +91,7 @@ import pandas as pd
 from matplotlib.colors import ListedColormap, BoundaryNorm
 from matplotlib.patches import Patch
 
-def heatmap_missing_values(df, df_name = 'OMNI'):
+def heatmap_missing_values(df, df_name = 'OMNI', cmap_ = ['#f2f2f2', '#e74c3c']):
     """
     Affiche une heatmap des valeurs manquantes d'un DataFrame.
     - Variables en colonnes (axe X)
@@ -103,7 +103,7 @@ def heatmap_missing_values(df, df_name = 'OMNI'):
     missing_matrix = df.isnull().astype(int)
     
     # 2. Définition de deux couleurs bien différentes (ex: Gris très clair et Rouge vif)
-    cmap = ListedColormap(['#f2f2f2', '#e74c3c'])
+    cmap = ListedColormap(cmap_)
     
     fig, ax = plt.subplots(figsize=(12, 7))
     
@@ -141,8 +141,8 @@ def heatmap_missing_values(df, df_name = 'OMNI'):
         
     # 6. Ajout d'une légende personnalisée pour les deux couleurs
     legend_elements = [
-        Patch(facecolor='#f2f2f2', edgecolor='gray', label='Valeur présente'),
-        Patch(facecolor='#e74c3c', edgecolor='gray', label='Valeur manquante')
+        Patch(facecolor=cmap_[0], edgecolor='gray', label='Valeur présente'),
+        Patch(facecolor=cmap_[1], edgecolor='gray', label='Valeur manquante')
     ]
     ax.legend(handles=legend_elements, bbox_to_anchor=(1.02, 1), loc='upper left', fontsize=10)
     
@@ -151,7 +151,7 @@ def heatmap_missing_values(df, df_name = 'OMNI'):
 
 
 
-def heatmap_mask(df, df_name='OMNI'):
+def heatmap_mask(df, df_name='OMNI', cmap_ = ["#86E2E1", "#4949AB", "#EEE2E2"] ):
     """
     Affiche une heatmap d'un DataFrame de masque à trois états :
     - -1 : donnée manquante originale (bleu ciel)
@@ -169,7 +169,7 @@ def heatmap_mask(df, df_name='OMNI'):
         color_index[values == v] = i
 
     # 2. Couleurs : bleu foncé (-2), bleu ciel (-1), gris clair (+1)
-    cmap = ListedColormap(["#86E2E1", "#4949AB", "#EEE2E2"])
+    cmap = ListedColormap(cmap_)
     norm = BoundaryNorm([-0.5, 0.5, 1.5, 2.5], cmap.N)
 
     fig, ax = plt.subplots(figsize=(12, 7))
@@ -205,9 +205,9 @@ def heatmap_mask(df, df_name='OMNI'):
 
     # 6. Légende personnalisée pour les trois états
     legend_elements = [
-        Patch(facecolor="#4949AB", edgecolor='gray', label='Manquant original (-1)'),
-        Patch(facecolor="#86E2E1", edgecolor='gray', label='Manquant synthétique (-2)'),
-        Patch(facecolor="#EEE2E2", edgecolor='gray', label='Mesuré (+1)'),
+        Patch(facecolor=cmap_[1], edgecolor='gray', label='Manquant original (-1)'),
+        Patch(facecolor=cmap_[0], edgecolor='gray', label='Manquant synthétique (-2)'),
+        Patch(facecolor=cmap_[2], edgecolor='gray', label='Mesuré (+1)'),
     ]
     ax.legend(handles=legend_elements, bbox_to_anchor=(1.02, 1), loc='upper left', fontsize=10)
 
@@ -219,27 +219,29 @@ def heatmap_mask(df, df_name='OMNI'):
 
 def stats_missing_values(df):
     """
-    Calcule les statistiques des données manquantes (0) et des trous consécutifs 
+    Calcule les statistiques des données manquantes (0) et des trous consécutifs
     à partir d'une matrice masque (0 = manquant, 1 = mesure).
     """
     results = []
-    
+
     for col in df.columns:
         # Dans le masque, 0 = donnée manquante
         mask = (df[col] == 0)
         nb_missing = int(mask.sum())
-        
-        if nb_missing == 0:
+        pct_missing = float(mask.mean() * 100)
+
+        if nb_missing == 0: 
             results.append({
                 'variable': col,
                 'Nb données manquantes': 0,
+                'Pourcentage données manquantes': 0.0,
                 'Nb trous': 0,
                 'Moyenne taille trou': 0.0,
                 'Mediane taille trou': 0.0,
                 'Écart-type taille trou': 0.0
             })
             continue
-        
+
         # Détection robuste des blocs consécutifs de 0 avec NumPy
         mask_arr = mask.to_numpy()
         padded = np.concatenate(([False], mask_arr, [False]))
@@ -247,7 +249,7 @@ def stats_missing_values(df):
         starts = np.where(changes == 1)[0]
         ends = np.where(changes == -1)[0]
         lengths = ends - starts
-        
+
         nb_trous = len(lengths)
         if nb_trous > 0:
             mean_size = float(np.mean(lengths))
@@ -257,20 +259,20 @@ def stats_missing_values(df):
             mean_size = 0.0
             median_size = 0.0
             std_size = 0.0
-            
+
         results.append({
             'variable': col,
             'Nb données manquantes': nb_missing,
+            'Pourcentage données manquantes': pct_missing,
             'Nb trous': nb_trous,
             'Moyenne taille trou': mean_size,
             'Mediane taille trou': median_size,
             'Écart-type taille trou': std_size
         })
-        
+
     res_df = pd.DataFrame(results)
     res_df.set_index('variable', inplace=True)
     return res_df
-
 
 #%% histos
 

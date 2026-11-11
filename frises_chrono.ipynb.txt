@@ -1,0 +1,91 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Nov 11 20:40:44 2026
+
+@author: Pierre Guéno
+"""
+
+import matplotlib.dates as mdates
+import matplotlib.pyplot as plt
+import pandas as pd
+
+# 1. Chargement des données (remplacez 'OMNI_data_availabilty.xlsx' par le nom de votre fichier)
+df = pd.read_excel('OMNI_data_availability.xlsx')
+
+# 2. Nettoyage et conversion des dates
+# On s'assure que la colonne 'date début' est au format datetime
+df['date début'] = pd.to_datetime(df['date début'], format='%d/%m/%Y')
+
+# Conversion de la date de début en nombre sériel pour Matplotlib
+df['start_num'] = mdates.date2num(df['date début'])
+
+# 3. Création du graphique
+fig, ax = plt.subplots(figsize=(12, 8))
+
+# Traçage des barres horizontales
+ax.barh(
+    df['Parameters'],
+    df['Durée'],
+    left=df['start_num'],
+    color='cornflowerblue',
+    edgecolor='midnightblue',
+    alpha=0.85,
+)
+
+# 4. Formatage de l'axe X (affichage des années)
+ax.xaxis_date()
+ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+ax.xaxis.set_major_locator(
+    mdates.YearLocator(5)
+)  # Un repère tous les 5 ans (ajustable)
+
+# 5. Mise en page et esthétique
+ax.set_xlabel('Années', fontsize=12, fontweight='bold')
+ax.set_ylabel('Paramètres', fontsize=12, fontweight='bold')
+ax.set_title(
+    'Disponibilité des paramètres OMNI', fontsize=14, fontweight='bold'
+)
+
+# Inverser l'axe Y pour avoir le premier paramètre en haut
+plt.gca().invert_yaxis()
+
+plt.grid(axis='x', linestyle='--', alpha=0.6)
+plt.tight_layout()
+
+# Sauvegarde et affichage
+# plt.savefig('omni_gantt_chart.png', dpi=300)
+plt.show()
+
+#%%
+
+import pandas as pd
+import plotly.express as px
+
+# 1. Chargement des données
+df = pd.read_excel('OMNI_data_availability.xlsx')
+
+# 2. Conversion de la date de début et calcul de la date de fin
+df['date début'] = pd.to_datetime(df['date début'], format='%d/%m/%Y')
+# On calcule la date de fin en ajoutant la durée (en jours) à la date de début
+df['date fin'] = df['date début'] + pd.to_timedelta(df['Durée'], unit='D')
+
+# 3. Création du diagramme de Gantt interactif
+fig = px.timeline(
+    df,
+    x_start='date début',
+    x_end='date fin',
+    y='Parameters',
+    color='Parameters',  # Attribue une couleur différente par paramètre
+    title='Frise de disponibilité des paramètres OMNI',
+    labels={
+        'date début': 'Date de début',
+        'date fin': 'Date de fin',
+        'Parameters': 'Paramètre',
+    },
+)
+
+# Inverser l'axe Y pour l'ordre de lecture habituel
+fig.update_yaxes(autorange='reversed')
+
+# Affichage du graphique interactif dans le navigateur
+fig.show()
