@@ -41,13 +41,13 @@ def assemble_input_for_training(X_ori, indicating_mask, cond_mask, observed_tp):
     Extrait les tenseurs d'un batch, adapte leurs dimensions au réseau CSDI et construit le dictionnaire d'entrées
 
     Args:
-        X_ori (): matrice des valeurs temporelles d'origine
-        indicating_mask (): masque binaire des cibles d'imputation (m^ta)
-        cond_mask (): masque binaire des observations conditionnelles (m^co)
-        observed_tp (): les points des temps observés
+        X_ori (torch.tensor): matrice des valeurs temporelles d'origine pour l'entraînement (B,L,K)
+        indicating_mask (torch.tensor): masque binaire des cibles d'imputation (m^ta) (B,L,K)
+        cond_mask (torch.tensor): masque binaire des observations conditionnelles (m^co) (B,L,K)
+        observed_tp (torch.tensor): les points des temps observés (B,L,K)
     
     Return:
-        Dict 
+        Dictionnaire contenant X_ori(B,K,L), indicating_mask(B,K,L), cond_mask(B,K,L) et observed_tp (B,K,L)
     """
     # permute (B,L,K) à (B,K,L) pour le réseau de débruitage
     inputs = {"X_ori" : X_ori.permute(0,2,1), 
@@ -61,9 +61,12 @@ def assemble_input_for_testing(X, cond_mask, observed_tp):
     Fonction de préparation des données pour la test. Permet d'adapter aux dimension du réseau CSDI et construit un dictionnaire
 
     Args:
-        X (_type_): _description_
-        cond_mask (_type_): _description_
-        observed_tp (_type_): _description_
+        X (torch.tensor): matrice des valeurs temporelles d'origine pour le test (B,L,K)
+        cond_mask (torch.tensor): massque binaire des observations conditionnelles pour le test (B,L,K)
+        observed_tp (torch.tensor): les points des temps observés des données de test (B,L,K)
+        
+    Returns :
+        Dictionnaire contenant X(B,K,L), cond_mask(B,K,L) et observed_tp(B,K,L)
     """
     inputs = {"X" : X.permute(0,2,1),
               "cond_mask" : cond_mask.permute(0,2,1),
@@ -83,8 +86,12 @@ def time_embedding_sin(pos, d_model = 128):
     des heures, faible fréquence. 
 
     Args:
-        pos (torch.Tensor): _description_
-        d_model (int, optional): _description_. Defaults to 128.
+        pos (torch.Tensor): données observées
+        d_model (int, optional): Nombre de canaux d'informations que l'on va ajouter.  Defaults to 128.
+        
+    Returns:
+        torch.Tensor : (pos.shape[0], pos.shape[1], d_model)
+    
     """
     
     pe = torch.zeros(pos.shape[0], pos.shape[1], d_model).to(pos.device)#initialisation d'un tensor de taille (B,L,d_model) avec même device que pos
@@ -102,11 +109,11 @@ def get_side_info(observed_tp, cond_mask,embed_layer, d_time_embedding, is_uncon
         - masque conditionnel : sait où sont les valeurs observées
 
     Args:
-        observed_tp (_type_): _description_
-        cond_mask (_type_): _description_
-        embed_layer
-        d_time_embedding
-        is_unconditional
+        observed_tp (torch.Tensor): données observées (B,K,L)
+        cond_mask (torch.Tensor): masque binaire des observations conditionnelles (B,K,L)
+        embed_layer (torch.Tensor) : s
+        d_time_embedding (int) :
+        is_unconditional (bool, optional) : Defaults to False
     """
     B, K, L = cond_mask.shape
     device = observed_tp.device
@@ -135,9 +142,9 @@ def conv1d(i, o, zero=False):
     """Produit de convolution noyau de taille 1. Permet d'augmenter le nombre de canaux o pour chaque case. 
 
     Args:
-        i (_type_): _description_
-        o (_type_): _description_
-        zero (bool, optional): _description_. Defaults to False.
+        i (int): _description_
+        o (int): _description_
+        zero (bool, optional): si False, tous les poids valent 0. Defaults to False.
 
     Returns:
         _type_: _description_
@@ -166,14 +173,14 @@ def make_transformer(C, n_heads):
 
 
 def build_model(cfg, device):
-    """_summary_
+    """Construction du réseaux et plannification du bruit.
 
     Args:
-        cfg (_type_): _description_
-        device (_type_): _description_
+        cfg (dict): paramètres définis par l'utilisateur pour le réseau
+        device (str): device to use
 
     Returns:
-        _type_: _description_
+        dict: paramètres du réseau.
     """
     C, T, d = cfg["n_channels"], cfg["n_diffusion_steps"], cfg["d_diffusion_embedding"]
     side_dim = cfg["d_time_embedding"] + cfg["d_feature_embedding"] + (0 if cfg["is_unconditional"] else 1)
@@ -220,12 +227,12 @@ def tf_over(y, tf, axis):
     """applique transformer selon l'axe temps ou variable. 
 
     Args:
-        y (_type_): _description_
+        y (torch.Tensor): données temporelles auxquelles on ajoute le bruit diffusé (B,2,K,L)
         tf (_type_): _description_
-        axis (_type_): _description_
+        axis (str): "time" or "feature".
 
     Returns:
-        _type_: _description_
+        torch.Tensor: 
     """
     B, C, K, L = y.shape
     if axis == "time":      # séquences de longueur L, une par (b,k)
@@ -239,8 +246,18 @@ def tf_over(y, tf, axis):
 
 
 def denoise(model, x, side_info, t):
-    """x (B,2,K,L), side_info (B,side,K,L), t (B,) -> bruit prédit (B,K,L)*
-    essaie de prédire le bruit ajouté aux données lors du processus de diffusion. 
+    """
+    Essaie de prédire le bruit ajouté aux données lors du processus de diffusion. 
+    
+    Args:
+        model(dict) : paramètres du réseaux
+        x (torch.Tensor) : données temporelles (B,2,K,L)
+        side_info (torch.Tensor) : données issus de side_info, (B,side,K,L)
+        t (B,) 
+        
+    Returns
+    torch.Tensor : bruit prédit (B,K,L)*
+    
     
     """
     net, sched = model["net"], model["sched"]
@@ -273,11 +290,11 @@ def calc_loss(model, observed_data, cond_mask, target_mask, side_info, t=None):
     """Calcule le loss entre le vrai bruit et le bruit prédit par le modèle (via denoise())
 
     Args:
-        model (_type_): _description_
-        observed_data (_type_): _description_
-        cond_mask (_type_): _description_
-        target_mask (_type_): _description_
-        side_info (_type_): _description_
+        model (dict): _description_
+        observed_data (torch.Tensor): _description_
+        cond_mask (torch.Tensor): _description_
+        target_mask (Torch.Tensor): _description_
+        side_info (Torch.Tensor): _description_
         t (_type_, optional): _description_. Defaults to None.
 
     Returns:
@@ -296,15 +313,15 @@ def calc_loss(model, observed_data, cond_mask, target_mask, side_info, t=None):
     return residual.pow(2).sum() / max(target_mask.sum().item(), 1) #loss entre le bruit prédit et le vrai bruit 
 
 
-def calc_loss_valid(model, observed_data, cond_mask, target_mask, side_info): #Je pense faux 
+def calc_loss_valid(model, observed_data, cond_mask, target_mask, side_info): 
     """Calcule loss pour chaque t
 
     Args:
-        model (_type_): _description_
-        observed_data (_type_): _description_
-        cond_mask (_type_): _description_
-        target_mask (_type_): _description_
-        side_info (_type_): _description_
+        model (dict): _description_
+        observed_data (torch.Tenspr): _description_
+        cond_mask (torch.Tensor): _description_
+        target_mask (torch.Tensor): _description_
+        side_info (torch.Tensor): _description_
 
     Returns:
         _type_: _description_
@@ -318,17 +335,18 @@ def calc_loss_valid(model, observed_data, cond_mask, target_mask, side_info): #J
 #Diffusion inverse
 @torch.no_grad()
 def sample(model, observed_data, cond_mask, side_info, n_sampling_times):
-    """_summary_
+    """ Part d'un bruit pur et débruite en piochant un pas t aléatoirement. Effectue le débruitage n_sampling_times fois
+    pour générer plusieurs scénarios pausibles.
 
     Args:
-        model (_type_): _description_
-        observed_data (_type_): _description_
-        cond_mask (_type_): _description_
-        side_info (_type_): _description_
-        n_sampling_times (_type_): nombre de trajectoire aléatoires que l'on veut générer, c'est-à-dire nombre d'imputations plausibles
+        model (dict): paramètres du réseaux
+        observed_data (torch.Tensor): données temporelles 
+        cond_mask (torch.Tensor): _description_
+        side_info (torch.Tensor): _description_
+        n_sampling_times (int): nombre de trajectoire aléatoires que l'on veut générer, c'est-à-dire nombre d'imputations plausibles
 
     Returns:
-        _type_: ensemble des scénarios pausibles
+        torch.Tensor : ensemble des scénarios pausibles
     """
     s, T = model["sched"], model["cfg"]["n_diffusion_steps"]
     B, K, L = observed_data.shape
@@ -351,7 +369,6 @@ def sample(model, observed_data, cond_mask, side_info, n_sampling_times):
 
 
 #Forward (imputation)
-#forward 
 
 def forward(model, inputs, calc_criterion, training=True, n_sampling_times=1):
     cfg, results = model["cfg"], {}
@@ -482,10 +499,16 @@ def fit_arrays(Xtr, Otr, Xva, Ova, Ctr=None, Cva=None, epochs=20, batch_size=16,
 
 @torch.no_grad()
 def impute(model, X, cond, n_sampling_times=5, batch_size=8):
-    """Imputation avec un cond_mask explicite. X, cond : (N,L,K) normalisés. Retourne la médiane des tirages (N,L,K)."""
+    """Imputation des données avec les modèle entraîné
+    Args :
+        - X : données de test normalisées divisées en fenêtres (N,L,K), tableau numpy
+        - cond : masque des valeurs observées et manquantes (N,L,K)
+    Returns :
+        - list : médiane des tirages (N,L,K). 
+    """
     dev = next(model["net"].parameters()).device
     model["net"].eval()
-    Xin = torch.tensor(X * cond, dtype=torch.float32)       # CACHE les points carvés (sinon la vraie valeur s'ajoute à l'échantillon dans forward)
+    Xin = torch.tensor(X * cond, dtype=torch.float32)   
     Cm = torch.tensor(cond, dtype=torch.float32)
     outs = []
     for i in tqdm(range(0, len(Xin), batch_size), desc="imputation"):
