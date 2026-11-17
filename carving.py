@@ -161,7 +161,11 @@ carvedv2_omni_speasycda2_1h_20080101_20191231, maskchar_carvedv2_omni_speasycda2
     omni_speasycda2_1h_20080101_20191231) #la période sur laquelle on copie la distribution
 
 
-# CONVENTIONS NOMS
+carvedv1_omni_speasycda2_1h_20080101_20191231, maskchar_carvedv1_omni_speasycda2_1h_20080101_20191231, maskint_carvedv1_omni_speasycda2_1h_20080101_20191231 = carving(
+    omni_speasycda2_1h_19840101_19951231, #la distribution que l'on regarde
+    omni_speasycda2_1h_20080101_20191231) #la période sur laquelle on copie la distribution
+
+
 #%% Export 
 
 #NAME CONVENTION
@@ -175,4 +179,8 @@ carvedv2_omni_speasycda2_1h_20080101_20191231, maskchar_carvedv2_omni_speasycda2
 # carvedv2_omni_speasycda2_1h_20080101_20191231.to_pickle('C:/Users/pierr/OneDrive - IPSA/Documents/IPSA/Aero 5/PMI/data/carvedv2_omni_speasycda2_1h_20080101_20191231.pkl')
 # maskchar_carvedv2_omni_speasycda2_1h_20080101_20191231.to_pickle('C:/Users/pierr/OneDrive - IPSA/Documents/IPSA/Aero 5/PMI/data/maskchar_carvedv2_omni_speasycda2_1h_20080101_20191231.pkl')
 # maskint_carvedv2_omni_speasycda2_1h_20080101_20191231.to_pickle('C:/Users/pierr/OneDrive - IPSA/Documents/IPSA/Aero 5/PMI/data/maskint_carvedv2_omni_speasycda2_1h_20080101_20191231.pkl')
+
+# carvedv1_omni_speasycda2_1h_20080101_20191231.to_pickle('C:/Users/pierr/OneDrive - IPSA/Documents/IPSA/Aero 5/PMI/data/carvedv1_omni_speasycda2_1h_20080101_20191231.pkl')
+# maskchar_carvedv1_omni_speasycda2_1h_20080101_20191231.to_pickle('C:/Users/pierr/OneDrive - IPSA/Documents/IPSA/Aero 5/PMI/data/maskchar_carvedv1_omni_speasycda2_1h_20080101_20191231.pkl')
+# maskint_carvedv1_omni_speasycda2_1h_20080101_20191231.to_pickle('C:/Users/pierr/OneDrive - IPSA/Documents/IPSA/Aero 5/PMI/data/maskint_carvedv1_omni_speasycda2_1h_20080101_20191231.pkl')
 
