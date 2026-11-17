@@ -1,9 +1,4 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Thu Nov  5 19:08:28 2026
-
-@author: Pierre Guéno
-"""
+#%% librairies
 
 import numpy as np
 import pandas as pd
@@ -19,78 +14,12 @@ with open('C:/Users/pierr/OneDrive - IPSA/Documents/IPSA/Aero 5/PMI/data/omni_sp
 with open('C:/Users/pierr/OneDrive - IPSA/Documents/IPSA/Aero 5/PMI/data/omni_speasycda2_1h_19960101_20071231.pkl', 'rb') as file:
     omni_speasycda2_1h_19960101_20071231 = pickle.load(file)
     
+with open('C:/Users/pierr/OneDrive - IPSA/Documents/IPSA/Aero 5/PMI/data/omni_speasycda2_1h_20080101_20191231.pkl', 'rb') as file:
+    omni_speasycda2_1h_20080101_20191231 = pickle.load(file)
+    
 del file
-#%% Création matrice mask
 
-from dataset_analysis_functions import compute_mask
-
-M = compute_mask(omni_speasycda2_1h_19840101_19951231) #mask (np.array)
-M_omni_speasycda2_1h_19840101_19951231 = pd.DataFrame(M, columns=omni_speasycda2_1h_19840101_19951231.columns, 
-                                                      index = omni_speasycda2_1h_19840101_19951231.index) #mask (pd.df)
-
-M = compute_mask(omni_speasycda2_1h_19960101_20071231) #mask (np.array)
-M_omni_speasycda2_1h_19960101_20071231   = pd.DataFrame(M, columns=omni_speasycda2_1h_19960101_20071231.columns, 
-                                                        index = omni_speasycda2_1h_19960101_20071231.index) #mask (pd.df)
-
-del M
-#%% function
-
-def df_to_pypots_array(df):
-    """PyPOTS expects X with shape (n_samples, n_steps, n_features).
-    A single dataframe is treated here as ONE time-series sample."""
-    return df.to_numpy(dtype=float)[np.newaxis, :, :]
-
-#======================================================================
-#%% Étape 1 : vérification de l'alignement
-# ======================================================================
-print("Étape 1 : vérification de l'alignement")
-
-assert omni_speasycda2_1h_19840101_19951231.shape == omni_speasycda2_1h_19960101_20071231.shape, \
-    f"Formes différentes : {omni_speasycda2_1h_19840101_19951231.shape} vs {omni_speasycda2_1h_19960101_20071231.shape}"
-assert M_omni_speasycda2_1h_19840101_19951231.shape == omni_speasycda2_1h_19840101_19951231.shape \
-    and M_omni_speasycda2_1h_19960101_20071231.shape == omni_speasycda2_1h_19960101_20071231.shape, \
-    "Les masques doivent avoir la même forme que les données."
-assert list(omni_speasycda2_1h_19840101_19951231.columns) == list(omni_speasycda2_1h_19960101_20071231.columns), \
-    "Les colonnes diffèrent entre les deux périodes."
-assert list(M_omni_speasycda2_1h_19840101_19951231.columns) == list(omni_speasycda2_1h_19840101_19951231.columns) \
-    and list(M_omni_speasycda2_1h_19960101_20071231.columns) == list(omni_speasycda2_1h_19960101_20071231.columns), \
-    "Les colonnes des masques ne correspondent pas à celles des données."
-
-# Même position dans l'année (mois-jour-heure) pour chaque pas de temps
-assert (omni_speasycda2_1h_19840101_19951231.index.strftime("%m-%d %H")
-        == omni_speasycda2_1h_19960101_20071231.index.strftime("%m-%d %H")).all(), \
-    "Désalignement calendaire entre les deux périodes."
-print("  -> OK")
-
-
-# ======================================================================
-#%% Étape 2 : génération des NaN synthétiques (double boucle)
-#   i = colonne, j = ligne
-#   Si M_omni_..._19840101_19951231 (j, i) == 0  ->  NaN dans carved (j, i)
-# ======================================================================
-print("Étape 2 : génération des NaN synthétiques")
- 
-n_colonnes = M_omni_speasycda2_1h_19840101_19951231.shape[1]
-n_lignes = M_omni_speasycda2_1h_19840101_19951231.shape[0]
-
-# Copier-coller de l'original au début de la boucle
-carvedv1_omni_speasycda2_1h_19960101_20071231 = omni_speasycda2_1h_19960101_20071231.copy()
-
-for i in tqdm(range(n_colonnes), desc="Carving des colonnes", unit="colonne"):
-    for j in range(n_lignes):
-        if M_omni_speasycda2_1h_19840101_19951231.iat[j, i] == 0:
-            carvedv1_omni_speasycda2_1h_19960101_20071231.iat[j, i] = np.nan
-
-del i, j, n_colonnes, n_lignes
-# ======================================================================
-#%% Étape 3 bis : DataFrame de statut des cellules (mask_df_carvingv1)
-# ======================================================================
-print("Étape 3 : création de mask_df_carvingv1")
-
-
-M = compute_mask(carvedv1_omni_speasycda2_1h_19960101_20071231) #mask (np.array)
-M_carvedv1_omni_speasycda2_1h_19960101_20071231 = pd.DataFrame(M, columns=carvedv1_omni_speasycda2_1h_19960101_20071231.columns, 
-                                                               index=carvedv1_omni_speasycda2_1h_19960101_20071231.index) #mask (pd.df)
+#%% Fonctions 
 
 def mask_creation(M1, M2, 
                   CODE_MANQUE_NATUREL = -1, CODE_MANQUE_SYNTHETIQUE = -2, CODE_MESURE = 1):
@@ -146,13 +75,104 @@ def mask_creation(M1, M2,
     return mask_df_texte, mask_df_entiers
 
 
-maskchar_carvedv1_omni_speasycda2_1h_19960101_20071231, maskint_carvedv1_omni_speasycda2_1h_19960101_20071231 = mask_creation(M_omni_speasycda2_1h_19960101_20071231, 
-                                                         M_carvedv1_omni_speasycda2_1h_19960101_20071231)
 
-del M
+#%% Carving
+
+def carving(df1, df2):
+    """
+    création des données manquantes synthétiques sur le df2 en prenant la distribution du df1. 
+    /!\ les df doivent avoir la même forme et taille (colonnes, résolution et période). 
+    --> la 1ère étape de la fonction teste cela.
+
+    Parameters
+    ----------
+    df1 : le df avec la distribution de trous que l'on veut copier
+    df2 : le df avec lequel on veut ajouter des données manquantes synthétiques
+    
+
+    Returns
+    -------
+    carved_df2
+    maskchar_carved_df2
+    maskint_carved_df2
+    """
+    #%% 1. Création des matrices M
+    
+    print("Création des matrices M")
+    
+    from dataset_analysis_functions import compute_mask
+    
+    M_df1 = pd.DataFrame(compute_mask(df1), columns=df1.columns, index = df1.index)
+    M_df2 = pd.DataFrame(compute_mask(df2), columns=df2.columns, index = df2.index)
+    
+    #%% 2. Vérification de l'alignement des deux df
+    
+    print("Vérification de l'alignement")
+    
+    assert df1.shape == df2.shape, \
+        f"Formes différentes : {df1.shape} vs {df2.shape}"
+    assert M_df1.shape == df1.shape \
+        and M_df2.shape == df2.shape, \
+        "Les masques doivent avoir la même forme que les données."
+    assert list(df1.columns) == list(df2.columns), \
+        "Les colonnes diffèrent entre les deux périodes."
+    assert list(M_df1.columns) == list(df1.columns) \
+        and list(M_df2.columns) == list(df2.columns), \
+        "Les colonnes des masques ne correspondent pas à celles des données."
+
+    # Même position dans l'année (mois-jour-heure) pour chaque pas de temps
+    assert (df1.index.strftime("%m-%d %H")
+            == df2.index.strftime("%m-%d %H")).all(), \
+        "Désalignement calendaire entre les deux périodes."
+    
+    #enchaînement de filtres pour vérifier la même forme, avec le même nombre de données, même colonnes, etc.
+    #continue sans provoquer d'erreurs si c'est le cas
+    #%% 3. Génération des NaN synthétiques (double boucle)
+    #   i = colonne, j = ligne
+    #   Si M_omni_..._19840101_19951231 (j, i) == 0  ->  NaN dans carved (j, i)
+     
+    n_colonnes = M_df1.shape[1]
+    n_lignes = M_df1.shape[0]
+
+    # Copier-coller de l'original au début de la boucle
+    carved_df2 = df2.copy()
+
+    for i in tqdm(range(n_colonnes), desc="Carving des colonnes", unit="colonne"):
+        for j in range(n_lignes):
+            if M_df1.iat[j, i] == 0:  #donc qu'une donnée est manquante dans le df1
+                carved_df2.iat[j, i] = np.nan  #on créé la donnée manquante synthétique
+                
+
+    #%% 4. Création du mask (pour distinguer les données manquantes réelles et synéthiques)
+
+    M_carved_df2 = pd.DataFrame(compute_mask(carved_df2), columns=carved_df2.columns, index=carved_df2.index)
+    
+    maskchar_carved_df2, maskint_carved_df2 = mask_creation(M_df2, M_carved_df2, CODE_MANQUE_NATUREL = -1, CODE_MANQUE_SYNTHETIQUE = -2, CODE_MESURE = 1)
+    #le premier df est composé de char 'mesure' / 'manque synthétique' / 'manque naturel'
+    #le second est composé de int (par défaut) : 1 (mesure) / 2 (manque synthétique) / 0 (manque naturel)
+
+    return carved_df2, maskchar_carved_df2, maskint_carved_df2
+
+
+#%%%
+
+carvedv2_omni_speasycda2_1h_20080101_20191231, maskchar_carvedv2_omni_speasycda2_1h_20080101_20191231, maskint_carvedv2_omni_speasycda2_1h_20080101_20191231 = carving(
+    omni_speasycda2_1h_19960101_20071231, #la distribution que l'on regarde
+    omni_speasycda2_1h_20080101_20191231) #la période sur laquelle on copie la distribution
+
+
+# CONVENTIONS NOMS
 #%% Export 
+
+#NAME CONVENTION
+#v1 -> distribution of SC22(1984-1995)
+#v2 -> distribution of SC23(1996-2007)
 
 # carvedv1_omni_speasycda2_1h_19960101_20071231.to_pickle('C:/Users/pierr/OneDrive - IPSA/Documents/IPSA/Aero 5/PMI/data/carvedv1_omni_speasycda2_1h_19960101_20071231.pkl')
 # maskchar_carvedv1_omni_speasycda2_1h_19960101_20071231.to_pickle('C:/Users/pierr/OneDrive - IPSA/Documents/IPSA/Aero 5/PMI/data/maskchar_carvedv1_omni_speasycda2_1h_19960101_20071231.pkl')
 # maskint_carvedv1_omni_speasycda2_1h_19960101_20071231.to_pickle('C:/Users/pierr/OneDrive - IPSA/Documents/IPSA/Aero 5/PMI/data/maskint_carvedv1_omni_speasycda2_1h_19960101_20071231.pkl')
+
+# carvedv2_omni_speasycda2_1h_20080101_20191231.to_pickle('C:/Users/pierr/OneDrive - IPSA/Documents/IPSA/Aero 5/PMI/data/carvedv2_omni_speasycda2_1h_20080101_20191231.pkl')
+# maskchar_carvedv2_omni_speasycda2_1h_20080101_20191231.to_pickle('C:/Users/pierr/OneDrive - IPSA/Documents/IPSA/Aero 5/PMI/data/maskchar_carvedv2_omni_speasycda2_1h_20080101_20191231.pkl')
+# maskint_carvedv2_omni_speasycda2_1h_20080101_20191231.to_pickle('C:/Users/pierr/OneDrive - IPSA/Documents/IPSA/Aero 5/PMI/data/maskint_carvedv2_omni_speasycda2_1h_20080101_20191231.pkl')
 
