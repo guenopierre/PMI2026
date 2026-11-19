@@ -7,6 +7,8 @@ import pandas as pd
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import math
+import matplotlib.patches as mpatches
+from matplotlib.colors import to_rgb
 
 # random carving 
 def get_rand_mask(observed_mask):
@@ -41,13 +43,13 @@ def assemble_input_for_training(X_ori, indicating_mask, cond_mask, observed_tp):
     Extrait les tenseurs d'un batch, adapte leurs dimensions au réseau CSDI et construit le dictionnaire d'entrées
 
     Args:
-        X_ori (torch.tensor): matrice des valeurs temporelles d'origine pour l'entraînement (B,L,K)
-        indicating_mask (torch.tensor): masque binaire des cibles d'imputation (m^ta) (B,L,K)
-        cond_mask (torch.tensor): masque binaire des observations conditionnelles (m^co) (B,L,K)
-        observed_tp (torch.tensor): les points des temps observés (B,L,K)
+        X_ori (): matrice des valeurs temporelles d'origine
+        indicating_mask (): masque binaire des cibles d'imputation (m^ta)
+        cond_mask (): masque binaire des observations conditionnelles (m^co)
+        observed_tp (): les points des temps observés
     
     Return:
-        Dictionnaire contenant X_ori(B,K,L), indicating_mask(B,K,L), cond_mask(B,K,L) et observed_tp (B,K,L)
+        Dict 
     """
     # permute (B,L,K) à (B,K,L) pour le réseau de débruitage
     inputs = {"X_ori" : X_ori.permute(0,2,1), 
@@ -61,12 +63,9 @@ def assemble_input_for_testing(X, cond_mask, observed_tp):
     Fonction de préparation des données pour la test. Permet d'adapter aux dimension du réseau CSDI et construit un dictionnaire
 
     Args:
-        X (torch.tensor): matrice des valeurs temporelles d'origine pour le test (B,L,K)
-        cond_mask (torch.tensor): massque binaire des observations conditionnelles pour le test (B,L,K)
-        observed_tp (torch.tensor): les points des temps observés des données de test (B,L,K)
-        
-    Returns :
-        Dictionnaire contenant X(B,K,L), cond_mask(B,K,L) et observed_tp(B,K,L)
+        X (_type_): _description_
+        cond_mask (_type_): _description_
+        observed_tp (_type_): _description_
     """
     inputs = {"X" : X.permute(0,2,1),
               "cond_mask" : cond_mask.permute(0,2,1),
@@ -86,12 +85,8 @@ def time_embedding_sin(pos, d_model = 128):
     des heures, faible fréquence. 
 
     Args:
-        pos (torch.Tensor): données observées
-        d_model (int, optional): Nombre de canaux d'informations que l'on va ajouter.  Defaults to 128.
-        
-    Returns:
-        torch.Tensor : (pos.shape[0], pos.shape[1], d_model)
-    
+        pos (torch.Tensor): _description_
+        d_model (int, optional): _description_. Defaults to 128.
     """
     
     pe = torch.zeros(pos.shape[0], pos.shape[1], d_model).to(pos.device)#initialisation d'un tensor de taille (B,L,d_model) avec même device que pos
@@ -109,11 +104,11 @@ def get_side_info(observed_tp, cond_mask,embed_layer, d_time_embedding, is_uncon
         - masque conditionnel : sait où sont les valeurs observées
 
     Args:
-        observed_tp (torch.Tensor): données observées (B,K,L)
-        cond_mask (torch.Tensor): masque binaire des observations conditionnelles (B,K,L)
-        embed_layer (torch.Tensor) : s
-        d_time_embedding (int) :
-        is_unconditional (bool, optional) : Defaults to False
+        observed_tp (_type_): _description_
+        cond_mask (_type_): _description_
+        embed_layer
+        d_time_embedding
+        is_unconditional
     """
     B, K, L = cond_mask.shape
     device = observed_tp.device
@@ -142,9 +137,9 @@ def conv1d(i, o, zero=False):
     """Produit de convolution noyau de taille 1. Permet d'augmenter le nombre de canaux o pour chaque case. 
 
     Args:
-        i (int): _description_
-        o (int): _description_
-        zero (bool, optional): si False, tous les poids valent 0. Defaults to False.
+        i (_type_): _description_
+        o (_type_): _description_
+        zero (bool, optional): _description_. Defaults to False.
 
     Returns:
         _type_: _description_
@@ -173,14 +168,14 @@ def make_transformer(C, n_heads):
 
 
 def build_model(cfg, device):
-    """Construction du réseaux et plannification du bruit.
+    """_summary_
 
     Args:
-        cfg (dict): paramètres définis par l'utilisateur pour le réseau
-        device (str): device to use
+        cfg (_type_): _description_
+        device (_type_): _description_
 
     Returns:
-        dict: paramètres du réseau.
+        _type_: _description_
     """
     C, T, d = cfg["n_channels"], cfg["n_diffusion_steps"], cfg["d_diffusion_embedding"]
     side_dim = cfg["d_time_embedding"] + cfg["d_feature_embedding"] + (0 if cfg["is_unconditional"] else 1)
@@ -227,12 +222,12 @@ def tf_over(y, tf, axis):
     """applique transformer selon l'axe temps ou variable. 
 
     Args:
-        y (torch.Tensor): données temporelles auxquelles on ajoute le bruit diffusé (B,2,K,L)
+        y (_type_): _description_
         tf (_type_): _description_
-        axis (str): "time" or "feature".
+        axis (_type_): _description_
 
     Returns:
-        torch.Tensor: 
+        _type_: _description_
     """
     B, C, K, L = y.shape
     if axis == "time":      # séquences de longueur L, une par (b,k)
@@ -246,18 +241,8 @@ def tf_over(y, tf, axis):
 
 
 def denoise(model, x, side_info, t):
-    """
-    Essaie de prédire le bruit ajouté aux données lors du processus de diffusion. 
-    
-    Args:
-        model(dict) : paramètres du réseaux
-        x (torch.Tensor) : données temporelles (B,2,K,L)
-        side_info (torch.Tensor) : données issus de side_info, (B,side,K,L)
-        t (B,) 
-        
-    Returns
-    torch.Tensor : bruit prédit (B,K,L)*
-    
+    """x (B,2,K,L), side_info (B,side,K,L), t (B,) -> bruit prédit (B,K,L)*
+    essaie de prédire le bruit ajouté aux données lors du processus de diffusion. 
     
     """
     net, sched = model["net"], model["sched"]
@@ -290,11 +275,11 @@ def calc_loss(model, observed_data, cond_mask, target_mask, side_info, t=None):
     """Calcule le loss entre le vrai bruit et le bruit prédit par le modèle (via denoise())
 
     Args:
-        model (dict): _description_
-        observed_data (torch.Tensor): _description_
-        cond_mask (torch.Tensor): _description_
-        target_mask (Torch.Tensor): _description_
-        side_info (Torch.Tensor): _description_
+        model (_type_): _description_
+        observed_data (_type_): _description_
+        cond_mask (_type_): _description_
+        target_mask (_type_): _description_
+        side_info (_type_): _description_
         t (_type_, optional): _description_. Defaults to None.
 
     Returns:
@@ -313,15 +298,15 @@ def calc_loss(model, observed_data, cond_mask, target_mask, side_info, t=None):
     return residual.pow(2).sum() / max(target_mask.sum().item(), 1) #loss entre le bruit prédit et le vrai bruit 
 
 
-def calc_loss_valid(model, observed_data, cond_mask, target_mask, side_info): 
+def calc_loss_valid(model, observed_data, cond_mask, target_mask, side_info): #Je pense faux 
     """Calcule loss pour chaque t
 
     Args:
-        model (dict): _description_
-        observed_data (torch.Tenspr): _description_
-        cond_mask (torch.Tensor): _description_
-        target_mask (torch.Tensor): _description_
-        side_info (torch.Tensor): _description_
+        model (_type_): _description_
+        observed_data (_type_): _description_
+        cond_mask (_type_): _description_
+        target_mask (_type_): _description_
+        side_info (_type_): _description_
 
     Returns:
         _type_: _description_
@@ -335,18 +320,17 @@ def calc_loss_valid(model, observed_data, cond_mask, target_mask, side_info):
 #Diffusion inverse
 @torch.no_grad()
 def sample(model, observed_data, cond_mask, side_info, n_sampling_times):
-    """ Part d'un bruit pur et débruite en piochant un pas t aléatoirement. Effectue le débruitage n_sampling_times fois
-    pour générer plusieurs scénarios pausibles.
+    """_summary_
 
     Args:
-        model (dict): paramètres du réseaux
-        observed_data (torch.Tensor): données temporelles 
-        cond_mask (torch.Tensor): _description_
-        side_info (torch.Tensor): _description_
-        n_sampling_times (int): nombre de trajectoire aléatoires que l'on veut générer, c'est-à-dire nombre d'imputations plausibles
+        model (_type_): _description_
+        observed_data (_type_): _description_
+        cond_mask (_type_): _description_
+        side_info (_type_): _description_
+        n_sampling_times (_type_): nombre de trajectoire aléatoires que l'on veut générer, c'est-à-dire nombre d'imputations plausibles
 
     Returns:
-        torch.Tensor : ensemble des scénarios pausibles
+        _type_: ensemble des scénarios pausibles
     """
     s, T = model["sched"], model["cfg"]["n_diffusion_steps"]
     B, K, L = observed_data.shape
@@ -369,6 +353,7 @@ def sample(model, observed_data, cond_mask, side_info, n_sampling_times):
 
 
 #Forward (imputation)
+#forward 
 
 def forward(model, inputs, calc_criterion, training=True, n_sampling_times=1):
     cfg, results = model["cfg"], {}
@@ -442,6 +427,12 @@ def fit_arrays(Xtr, Otr, Xva, Ova, Ctr=None, Cva=None, epochs=20, batch_size=16,
     """
     device = device or ("cuda" if torch.cuda.is_available() else "cpu")
     N, L, K = Xtr.shape
+    # vérifications : un problème de données doit s'afficher clairement, pas se manifester par un early stopping silencieux
+    if len(Xtr) == 0 or len(Xva) == 0:
+        raise ValueError(f"aucune fenêtre d'entraînement ({len(Xtr)}) ou de validation ({len(Xva)}) : vérifier MIN_OBS, L et le carving")
+    for nom, a in (("Xtr", Xtr), ("Xva", Xva)):
+        if not np.isfinite(a).all():
+            raise ValueError(f"{nom} contient des NaN ou des inf : vérifier la normalisation (variable constante, valeurs de remplissage)")
     cfg = make_cfg(L, K, **cfg_kwargs)
     model = build_model(cfg, device)
     T_ = lambda a: torch.tensor(a, dtype=torch.float32)
@@ -450,6 +441,10 @@ def fit_arrays(Xtr, Otr, Xva, Ova, Ctr=None, Cva=None, epochs=20, batch_size=16,
     if Cva is None:                                   
         torch.manual_seed(0); np.random.seed(0)
         Cva = get_rand_mask(T_(Ova)).numpy()
+    if Ctr is not None and (np.asarray(Otr) - np.asarray(Ctr)).sum() <= 0:
+        raise ValueError("aucune cible dans les fenêtres d'entraînement (Otr - Ctr = 0) : le carving n'y cache aucun point")
+    if (np.asarray(Ova) - np.asarray(Cva)).sum() <= 0:
+        raise ValueError("aucune cible dans les fenêtres de validation (Ova - Cva = 0) : la loss de validation serait toujours nulle")
     tr_tensors = [T_(Xtr), T_(Otr)] + ([T_(Ctr)] if Ctr is not None else [])
     train_loader = DataLoader(TensorDataset(*tr_tensors), batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(TensorDataset(T_(Xva), T_(Ova), T_(Cva)), batch_size=batch_size)
@@ -483,32 +478,31 @@ def fit_arrays(Xtr, Otr, Xva, Ova, Ctr=None, Cva=None, epochs=20, batch_size=16,
         history.append({"epoch": epoch + 1, "train": tr, "val": v})
         print(f"epoch {epoch+1}/{epochs}  train={tr:.4f}  val={v:.4f}")
 
+        if not (np.isfinite(tr) and np.isfinite(v)):    # une loss NaN/inf ne s'améliore jamais : on s'arrête avec un message clair
+            raise RuntimeError(f"loss non finie à l'epoch {epoch+1} (train={tr}, val={v}) : vérifier les données (NaN, valeurs aberrantes) ou baisser lr")
+
         if v < best:
             best, wait = v, 0
             best_state = {k: t.detach().clone() for k, t in model["net"].state_dict().items()}
+            # pour recharger : torch.load(save_path, weights_only=False) (norm contient des arrays numpy)
+            torch.save({"net": best_state, "cfg": cfg, "norm": norm}, save_path)   # enregistré dès que la validation s'améliore : rien n'est perdu si l'entraînement s'arrête
         else:
             wait += 1
             if wait >= patience:
                 print("early stopping"); break
 
-    model["net"].load_state_dict(best_state)
-    # pour recharger : torch.load(save_path, weights_only=False) (norm contient des arrays numpy)
-    torch.save({"net": best_state, "cfg": cfg, "norm": norm}, save_path)
+    model["net"].load_state_dict(best_state)       # best_state existe toujours ici : les loss non finies ont été interceptées plus haut
     return model, history
 
 
 @torch.no_grad()
 def impute(model, X, cond, n_sampling_times=5, batch_size=8):
-    """Imputation des données avec les modèle entraîné
-    Args :
-        - X : données de test normalisées divisées en fenêtres (N,L,K), tableau numpy
-        - cond : masque des valeurs observées et manquantes (N,L,K)
-    Returns :
-        - list : médiane des tirages (N,L,K). 
-    """
+    """Imputation avec un cond_mask explicite. X, cond : (N,L,K) normalisés. Retourne la médiane des tirages (N,L,K)."""
+    if len(X) == 0:
+        raise ValueError("aucune fenêtre à imputer (X est vide) : vérifier la sélection des fenêtres de test (select_windows)")
     dev = next(model["net"].parameters()).device
     model["net"].eval()
-    Xin = torch.tensor(X * cond, dtype=torch.float32)   
+    Xin = torch.tensor(X * cond, dtype=torch.float32)       # CACHE les points carvés (sinon la vraie valeur s'ajoute à l'échantillon dans forward)
     Cm = torch.tensor(cond, dtype=torch.float32)
     outs = []
     for i in tqdm(range(0, len(Xin), batch_size), desc="imputation"):
@@ -560,7 +554,8 @@ def windows_to_full(arr_w, i_win, L, T_tot):
     K = arr_w.shape[-1]
     full = np.full((T_tot, K), np.nan, dtype=np.float32)
     for n, w in enumerate(i_win):
-        full[w * L:(w + 1) * L] = arr_w[n]
+        seg = full[w * L:(w + 1) * L]            # plus court que L si la dernière fenêtre dépasse la fin de la série (lignes de remplissage)
+        seg[:] = arr_w[n][:len(seg)]
     return full
 
 def build_results(imp, lin, i_win, L, mean, std, df_test, carving_test):
@@ -633,3 +628,148 @@ def plot_compare_variable(res, var, start=None, n_hours=24 * 14):
     ax.set_ylabel(var); ax.grid(alpha=0.3)
     ax.legend(ncol=3, loc="lower center", bbox_to_anchor=(0.5, 1.0), frameon=False)
     fig.autofmt_xdate(); fig.tight_layout(); plt.show()
+
+
+# ======================================================================================
+# Vérification avant entraînement
+# ======================================================================================
+def sanity_check(Xw, Ow, device=None, **cfg_kwargs):
+    """Vérifie les formes et la loss initiale sur un mini-batch (la loss doit être proche de 1 avant entraînement).
+    Le masque est aléatoire ici : c'est un contrôle des formes, pas un entraînement."""
+    device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+    N, L, K = Xw.shape
+    model = build_model(make_cfg(L, K, **cfg_kwargs), device)
+    X, O = torch.tensor(Xw[:4]).to(device), torch.tensor(Ow[:4]).to(device)
+    cond = get_rand_mask(O)
+    tp = torch.arange(L, device=device).float().unsqueeze(0).expand(X.shape[0], L)
+    inputs = assemble_input_for_training(X, O - cond, cond, tp)
+    cfg = model["cfg"]
+    side = get_side_info(inputs["observed_tp"], inputs["cond_mask"], model["net"]["embed_feat"],
+                         cfg["d_time_embedding"], cfg["is_unconditional"])
+    print("X_ori       :", tuple(inputs["X_ori"].shape), " (attendu : B,K,L)")
+    print("side_info   :", tuple(side.shape), f" (attendu : B,{cfg['d_time_embedding'] + cfg['d_feature_embedding'] + 1},K,L)")
+    loss = forward(model, inputs, True, training=True)["loss"]
+    print("loss initiale :", round(loss.item(), 4), " (attendu : proche de 1)")
+    print("paramètres  :", f"{sum(p.numel() for p in model['net'].parameters()):,}")
+
+
+# ======================================================================================
+# Test SANS carving : on impute les vrais trous (aucune valeur cachée, donc aucune erreur calculable)
+# ======================================================================================
+def build_imputation(imp, lin, i_win, L, mean, std, df_test, observed):
+    """Remet les imputations bout à bout en séries complètes (T_tot,K), en unités physiques.
+
+    Args :
+        imp (N,L,K) : imputations normalisées de CSDI
+        lin (N,L,K) ou None : interpolation linéaire normalisée (référence visuelle)
+        i_win : indices des fenêtres imputées (la fenêtre n couvre les heures i_win[n]*L ... (i_win[n]+1)*L)
+        mean, std (K,) : statistiques du train
+        df_test (DataFrame) : données de test, dates en index
+        observed (T_tot,K) : masque des points mesurés (1 = mesuré, 0 = manquant), sans lignes de remplissage
+    Return :
+        dict utilisé par summarize_imputation, plot_imputed_variable et plot_heatmap_imputed.
+        res["final"] : série complétée (mesures conservées, trous remplis par CSDI ; NaN si la fenêtre n'a pas été imputée)
+    """
+    X = df_test.to_numpy(np.float32)
+    T_tot, K = X.shape
+    obs = np.asarray(observed)[:T_tot] > 0                                   # True = mesuré
+    true_full = np.where(obs, X, np.nan)                                     # mesures (NaN aux trous)
+    csdi_full = windows_to_full(imp * std + mean, i_win, L, T_tot)           # NaN hors des fenêtres imputées
+    lin_full = windows_to_full(lin * std + mean, i_win, L, T_tot) if lin is not None else None
+    missing = ~obs
+    imputed = missing & ~np.isnan(csdi_full)                                 # trous effectivement imputés
+    final = np.where(obs, X, csdi_full).astype(np.float32)
+    print(f"points manquants : {missing.sum()} | imputés par CSDI : {imputed.sum()} ({imputed.sum() / max(missing.sum(), 1):.1%})")
+    return dict(names=list(df_test.columns), dates=pd.DatetimeIndex(df_test.index), mean=np.asarray(mean), std=np.asarray(std),
+                obs=obs, true=true_full, csdi=csdi_full, lin=lin_full, missing=missing, imputed=imputed, final=final)
+
+
+def summarize_imputation(res):
+    """Tableau de contrôle par variable. Sans valeur cachée, on juge la PLAUSIBILITÉ (pas l'erreur) :
+      - moyenne / écart-type des mesures et des valeurs imputées (unités physiques) : doivent être du même ordre ;
+      - saut au bord des trous : écart entre la mesure voisine et la valeur imputée adjacente, divisé par la variation
+        horaire typique entre deux mesures consécutives. Proche de 1 : raccord continu ; très supérieur : raccord brutal ;
+      - part des mesures de test hors de ±4 écarts-types du train : mesure le décalage entre train et test."""
+    names, mean, std = res["names"], res["mean"], res["std"]
+    rows = []
+    for k, nm in enumerate(names):
+        o, im = res["obs"][:, k], res["imputed"][:, k]
+        x_o, x_i = res["true"][o, k], res["csdi"][im, k]
+        pair = o[1:] & o[:-1]                                                # deux mesures consécutives
+        step = np.abs(np.diff(res["true"][:, k]))[pair].mean() if pair.any() else np.nan
+        s = np.flatnonzero(im[1:] & o[:-1]) + 1                              # 1re valeur imputée après une mesure
+        e = np.flatnonzero(im[:-1] & o[1:])                                  # dernière valeur imputée avant une mesure
+        jumps = np.concatenate([np.abs(res["csdi"][s, k] - res["true"][s - 1, k]),
+                                np.abs(res["true"][e + 1, k] - res["csdi"][e, k])])
+        rows.append({
+            "manquants (%)": 100 * (~o).mean(),
+            "imputés": int(im.sum()),
+            "moy. mesures": x_o.mean() if len(x_o) else np.nan,
+            "moy. imputées": x_i.mean() if len(x_i) else np.nan,
+            "écart-type mesures": x_o.std() if len(x_o) else np.nan,
+            "écart-type imputées": x_i.std() if len(x_i) else np.nan,
+            "saut au bord / pas horaire": jumps.mean() / step if len(jumps) and step > 0 else np.nan,
+            "mesures hors ±4σ du train (%)": 100 * (np.abs((x_o - mean[k]) / std[k]) > 4).mean() if len(x_o) else np.nan,
+        })
+    return pd.DataFrame(rows, index=names)
+
+
+def plot_imputed_variable(res, var, start=None, n_hours=24 * 14, show_baselines=True):
+    """Une variable sur une période : mesures, valeurs imputées par CSDI et (en référence visuelle) interpolation linéaire et moyenne.
+    Il n'y a pas de vérité sur les trous : on regarde si l'imputation se raccorde aux mesures et garde une amplitude plausible.
+
+    Args :
+        var : nom de la variable
+        start : date de début (ex. '2003-10-25'), sinon la période de n_hours heures qui contient le plus de points imputés."""
+    names, dates = res["names"], res["dates"]
+    if var not in names:
+        raise ValueError(f"variable inconnue : {var}. Choix possibles : {names}")
+    k = names.index(var)
+    imp_k = res["imputed"][:, k]
+    if imp_k.sum() == 0:
+        print(f"{var} : aucun point imputé (aucun trou, ou fenêtres non imputées)."); return
+    if start is None:
+        s = int(np.convolve(imp_k.astype(int), np.ones(n_hours, dtype=int), "valid").argmax())
+    else:
+        s = int(dates.get_indexer([pd.Timestamp(start)], method="nearest")[0])
+    s = max(0, min(s, len(dates) - n_hours))
+    sl = slice(s, s + n_hours)
+    d, h, o = dates[sl], imp_k[sl], res["obs"][sl, k]
+    if h.sum() == 0:
+        print("aucun point imputé dans cette période : essaie une autre date, ou start=None pour la période la plus chargée.")
+        return
+
+    fig, ax = plt.subplots(figsize=(12, 4.8))
+    ax.fill_between(d, 0, 1, where=h, transform=ax.get_xaxis_transform(), color="tab:orange", alpha=0.10, label="trou imputé")
+    ax.plot(d, np.where(o, res["true"][sl, k], np.nan), color="tab:blue", marker="o", ms=2.5, lw=1, label="mesures", zorder=2)
+    if show_baselines:
+        if res["lin"] is not None:
+            ax.plot(d, np.where(h, res["lin"][sl, k], np.nan), color="gray", marker="^", ms=3, lw=0.9, label="interpolation linéaire (référence)", zorder=3)
+        ax.plot(d, np.where(h, res["mean"][k], np.nan), color="tab:red", ls="--", lw=1, label="moyenne du train (référence)", zorder=3)
+    ax.plot(d, np.where(h, res["csdi"][sl, k], np.nan), color="tab:orange", marker="x", ms=4, lw=1.3, label="CSDI (valeurs imputées)", zorder=5)
+    ax.set_title(f"{var} : mesures et valeurs imputées", fontweight="bold", pad=52)
+    ax.set_ylabel(var); ax.grid(alpha=0.3)
+    ax.set_xlabel("pas de valeur cachée : on juge si l'imputation se raccorde aux mesures et garde une amplitude plausible")
+    ax.legend(ncol=3, loc="lower center", bbox_to_anchor=(0.5, 1.0), frameon=False)
+    fig.autofmt_xdate(); fig.tight_layout(); plt.show()
+
+
+def plot_heatmap_imputed(res, title_suffix=""):
+    """Heatmap (même style que le masque du carving) : mesures, trous imputés par CSDI, trous non imputés."""
+    col = {"mesure": "#EDE0E0", "imputé": "#88E0E0", "non_imputé": "#4B4BB0"}
+    img = np.empty(res["obs"].shape + (3,)); img[:] = to_rgb(col["mesure"])
+    img[res["imputed"]] = to_rgb(col["imputé"])
+    img[res["missing"] & ~res["imputed"]] = to_rgb(col["non_imputé"])
+    dates, names = res["dates"], res["names"]
+    fig, ax = plt.subplots(figsize=(12, 7))
+    ax.imshow(img, aspect="auto", interpolation="nearest")                   # nearest : pas de mélange de couleurs
+    years = sorted(set(dates.year))
+    ax.set_yticks([int(np.argmax(dates.year == y)) for y in years]); ax.set_yticklabels(years)
+    ax.set_xticks(range(len(names))); ax.set_xticklabels(names, rotation=45, ha="right")
+    ax.set_xlabel("Variables", fontweight="bold"); ax.set_ylabel("Années", fontweight="bold")
+    ax.set_title(f"Heatmap des trous imputés par CSDI{title_suffix}", fontweight="bold")
+    ax.legend(handles=[mpatches.Patch(facecolor=col["non_imputé"], edgecolor="gray", label="Manquant, non imputé"),
+                       mpatches.Patch(facecolor=col["imputé"], edgecolor="gray", label="Manquant, imputé par CSDI"),
+                       mpatches.Patch(facecolor=col["mesure"], edgecolor="gray", label="Mesuré")],
+              loc="upper left", bbox_to_anchor=(1.02, 1))
+    fig.tight_layout(); plt.show()
